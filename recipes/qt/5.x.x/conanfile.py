@@ -386,7 +386,8 @@ class QtConan(ConanFile):
             raise ConanInvalidConfiguration("option cross_compile must be set for cross compilation "
                                             "cf https://doc.qt.io/qt-5/configure-options.html#cross-compilation-options")
 
-        if self.options.with_sqlite3 and not self.dependencies["sqlite3"].options.enable_column_metadata:
+        # assume the option is present when coming from platform_requires
+        if self.options.with_sqlite3 and "sqlite3" in self.dependencies and not self.dependencies["sqlite3"].options.enable_column_metadata:
             raise ConanInvalidConfiguration("sqlite3 option enable_column_metadata must be enabled for qt")
 
     def requirements(self):

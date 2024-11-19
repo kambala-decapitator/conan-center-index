@@ -391,23 +391,27 @@ class OpenSSLConan(ConanFile):
             args.append("no-asm -lsocket -latomic")
 
         if not self.options.no_zlib:
-            zlib_cpp_info = self.dependencies["zlib"].cpp_info.aggregated_components()
-            include_path = self._adjust_path(zlib_cpp_info.includedirs[0])
-            if self._use_nmake:
-                lib_path = self._adjust_path(os.path.join(zlib_cpp_info.libdirs[0], f"{zlib_cpp_info.libs[0]}.lib"))
-            else:
-                # Just path, GNU like compilers will find the right file
-                lib_path = self._adjust_path(zlib_cpp_info.libdirs[0])
+            if "zlib" in self.dependencies:
+                zlib_cpp_info = self.dependencies["zlib"].cpp_info.aggregated_components()
+                include_path = self._adjust_path(zlib_cpp_info.includedirs[0])
+                if self._use_nmake:
+                    lib_path = self._adjust_path(os.path.join(zlib_cpp_info.libdirs[0], f"{zlib_cpp_info.libs[0]}.lib"))
+                else:
+                    # Just path, GNU like compilers will find the right file
+                    lib_path = self._adjust_path(zlib_cpp_info.libdirs[0])
 
-            if self.dependencies["zlib"].options.shared:
+                if self.dependencies["zlib"].options.shared:
+                    args.append("zlib-dynamic")
+                else:
+                    args.append("zlib")
+
+                args.extend([
+                    f'--with-zlib-include="{include_path}"',
+                    f'--with-zlib-lib="{lib_path}"',
+                ])
+            else:
+                # assume coming from platform_requires
                 args.append("zlib-dynamic")
-            else:
-                args.append("zlib")
-
-            args.extend([
-                f'--with-zlib-include="{include_path}"',
-                f'--with-zlib-lib="{lib_path}"',
-            ])
 
         for option_name in self.default_options.keys():
             if self.options.get_safe(option_name, False) and option_name not in ("shared", "fPIC", "openssldir", "tls_security_level", "capieng_dialog", "enable_capieng", "zlib", "no_fips", "no_md2"):

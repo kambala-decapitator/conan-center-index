@@ -1291,8 +1291,9 @@ class BoostConan(ConanFile):
             flags.append("--disable-iconv")
 
         def add_defines(library):
-            for define in self.dependencies[library].cpp_info.aggregated_components().defines:
-                flags.append(f"define={define}")
+            if library in self.dependencies:
+                for define in self.dependencies[library].cpp_info.aggregated_components().defines:
+                    flags.append(f"define={define}")
 
         if self._with_zlib:
             add_defines("zlib")
@@ -1408,7 +1409,7 @@ class BoostConan(ConanFile):
             # https://github.com/boostorg/stacktrace/blob/boost-1.85.0/src/from_exception.cpp#L29
             # This feature is guarded by BOOST_STACKTRACE_ALWAYS_STORE_IN_PADDING, but that is only enabled on x86.
             flags.append("define=BOOST_STACKTRACE_LIBCXX_RUNTIME_MAY_CAUSE_MEMORY_LEAK=1")
-        if self._with_iconv:
+        if self._with_iconv and "libiconv" in self.dependencies:
             flags.append(f"-sICONV_PATH={self.dependencies['libiconv'].package_folder}")
         if self._with_icu:
             flags.append(f"-sICU_PATH={self.dependencies['icu'].package_folder}")
@@ -1514,10 +1515,11 @@ class BoostConan(ConanFile):
         self.output.warning("Patching user-config.jam")
 
         def create_library_config(deps_name, name):
-            aggregated_cpp_info = self.dependencies[deps_name].cpp_info.aggregated_components()
-            if len(aggregated_cpp_info.libs) == 0:
+            # assume coming from platform_requires
+            if deps_name not in self.dependencies:
                 return ""
 
+            aggregated_cpp_info = self.dependencies[deps_name].cpp_info.aggregated_components()
             includedir = aggregated_cpp_info.includedirs[0].replace("\\", "/")
             includedir = f"\"{includedir}\""
             libdir = aggregated_cpp_info.libdirs[0].replace("\\", "/")
