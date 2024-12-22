@@ -75,10 +75,17 @@ class OpusFileConan(ConanFile):
                 if not self.conf.get("tools.microsoft.bash:path", check_type=str):
                     self.tool_requires("msys2/cci.latest")
 
+    def _patch_sources(self):
+        apply_conandata_patches(self)
+
     def source(self):
         get(self, **self.conan_data["sources"][self.version], strip_root=True)
+        self._patch_sources()
 
     def generate(self):
+        if self.settings.os == "Android":
+            replace_in_file(self, os.path.join(self.source_folder, "configure.ac"), "c89", "c99")
+
         if is_msvc(self):
             tc = MSBuildToolchain(self)
             tc.configuration = self._msbuild_configuration
@@ -99,7 +106,6 @@ class OpusFileConan(ConanFile):
             PkgConfigDeps(self).generate()
 
     def build(self):
-        apply_conandata_patches(self)
         if is_msvc(self):
             sln_folder = os.path.join(self.source_folder, "win32", "VS2015")
             vcxproj = os.path.join(sln_folder, "opusfile.vcxproj")
