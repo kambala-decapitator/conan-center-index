@@ -1,5 +1,6 @@
 from conan import ConanFile
 from conan.errors import ConanInvalidConfiguration
+from conan.tools.android import android_abi
 from conan.tools.apple import fix_apple_shared_install_name
 from conan.tools.env import VirtualBuildEnv
 from conan.tools.files import apply_conandata_patches, copy, export_conandata_patches, get, replace_in_file, rm, rmdir
@@ -102,6 +103,11 @@ class OpusFileConan(ConanFile):
                 f"--enable-http={yes_no(self.options.http)}",
                 "--disable-examples",
             ])
+            if self.settings.os == "Android" and int(str(self.settings.os.api_level)) < 24 and "armeabi" in android_abi(self):
+                tc.extra_defines.extend([
+                    "fseeko=fseek",
+                    "ftello=ftell",
+                ])
             tc.generate()
             PkgConfigDeps(self).generate()
 
