@@ -9,7 +9,7 @@ from conan.tools.layout import basic_layout
 from conan.tools.microsoft import is_msvc, MSBuild, MSBuildDeps, MSBuildToolchain
 import os
 
-required_conan_version = ">=1.54.0"
+required_conan_version = ">=2.4"
 
 
 class OpusFileConan(ConanFile):
@@ -21,6 +21,7 @@ class OpusFileConan(ConanFile):
     license = "BSD-3-Clause"
     package_type = "library"
     settings = "os", "arch", "compiler", "build_type"
+    languages = "C"
     options = {
         "shared": [True, False],
         "fPIC": [True, False],
@@ -50,8 +51,6 @@ class OpusFileConan(ConanFile):
     def configure(self):
         if self.options.shared:
             self.options.rm_safe("fPIC")
-        self.settings.rm_safe("compiler.cppstd")
-        self.settings.rm_safe("compiler.libcxx")
 
     def layout(self):
         basic_layout(self, src_folder="src")
