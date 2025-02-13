@@ -41,11 +41,18 @@ class LuajitConan(ConanFile):
     def layout(self):
         basic_layout(self, src_folder="src")
 
+    @property
+    def _is_host_32bit(self):
+        return self.settings.arch in ["armv7", "x86"]
+
     def validate(self):
         if self.settings.os == "Macos" and self.settings.arch == "armv8" and cross_building(self):
             raise ConanInvalidConfiguration(f"{self.ref} can not be cross-built to Mac M1. Please, try any version >=2.1")
         elif Version(self.version) <= "2.1.0-beta1" and self.settings.os == "Macos" and self.settings.arch == "armv8":
             raise ConanInvalidConfiguration(f"{self.ref} is not supported by Mac M1. Please, try any version >=2.1")
+        elif self._is_host_32bit and self.settings_build.os == "Macos":
+            # well, technically it should work on macOS <= 10.14
+            raise ConanInvalidConfiguration(f"{self.ref} cannot be cross-built to a 32-bit platform on macOS, see https://github.com/LuaJIT/LuaJIT/issues/664")
 
     def source(self):
         filename = f"LuaJIT-{self.version}.tar.gz"
@@ -105,7 +112,7 @@ class LuajitConan(ConanFile):
             target_flag = f"{to_apple_arch(self)}-apple-ios{self._apple_deployment_target(default='')}"
             args.extend([
                 f"CROSS={os.path.dirname(xcrun.cxx)}/",
-                f"TARGET_FLAGS='-isysroot \"{xcrun.sdk_path}\" -target {target_flag}'",
+                f"""TARGET_FLAGS='-isysroot "{xcrun.sdk_path}" -target {target_flag}'""",
                 "TARGET_SYS=iOS",
             ])
         return args
