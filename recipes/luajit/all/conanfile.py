@@ -69,7 +69,6 @@ class LuajitConan(ConanFile):
             env = tc.environment()
             if self.settings.os == "iOS":
                 env.define("CFLAGS", "")
-                env.define("CXXFLAGS", "")
                 env.define("LDFLAGS", "")
             tc.generate(env)
 
