@@ -891,7 +891,7 @@ class QtConan(ConanFile):
             filecontents += 'set(__qt_internal_cmake_apple_support_files_path "${CMAKE_CURRENT_LIST_DIR}/../../../lib/cmake/Qt6/macos")\n'
 
         executables_base_path = self.dependencies.direct_build["qt"].package_folder if self._is_mobile_os else self.package_folder
-        targets = ["moc", "qlalr", "rcc", "tracegen", "cmake_automoc_parser", "qmake", "qtpaths", "syncqt", "tracepointgen", "androiddeployqt", "androidtestrunner"]
+        targets = ["moc", "qlalr", "rcc", "tracegen", "cmake_automoc_parser", "qmake", "qtpaths", "syncqt", "tracepointgen"]
         if self.options.with_dbus:
             targets.extend(["qdbuscpp2xml", "qdbusxml2cpp"])
         if self.options.gui:
@@ -915,6 +915,9 @@ class QtConan(ConanFile):
             targets.append("repc")
         if self.options.get_safe("qtscxml"):
             targets.append("qscxmlc")
+        # https://github.com/qt/qtbase/blob/v6.8.3/src/tools/configure.cmake#L8
+        if not cross_building(self):
+            targets.extend(["androiddeployqt", "androidtestrunner"])
         for target in targets:
             exe_path = None
             for path_ in [f"bin/{target}{extension}",
