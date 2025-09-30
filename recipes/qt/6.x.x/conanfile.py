@@ -848,6 +848,72 @@ class QtConan(ConanFile):
     def _cmake_qt6_private_file(self, module):
         return os.path.join("lib", "cmake", f"Qt6{module}", f"conan_qt_qt6_{module.lower()}private.cmake")
 
+    @property
+    def _executable_targets_info(self):
+        # if self._is_mobile_os:
+        #     return []
+
+        targets = [
+            ("moc", "libexec"),
+            ("qlalr", "libexec"),
+            ("rcc", "libexec"),
+            ("tracegen", "libexec"),
+            ("cmake_automoc_parser", "libexec"),
+            ("qmake", "bin"),
+            ("qtpaths", "bin"),
+            ("syncqt", "libexec"),
+            ("tracepointgen", "libexec"),
+        ]
+        if self.options.with_dbus:
+            targets.extend([("qdbuscpp2xml", "bin"), ("qdbusxml2cpp", "bin")])
+        if self.options.gui:
+            targets.append(("qvkgen", "libexec"))
+        if self.options.widgets:
+            targets.append(("uic", "libexec"))
+        if self.settings_build.os == "Macos" and self.settings.os != "iOS":
+            targets.append(("macdeployqt", "bin"))
+        if self.settings.os == "Windows":
+            targets.append(("windeployqt", "bin"))
+        if self.options.qttools:
+            targets.extend([("qhelpgenerator", "libexec"), ("qtattributionsscanner", "libexec")])
+            targets.extend([
+                ("lconvert", "bin"),
+                ("lprodump", "libexec"),
+                ("lrelease", "bin"),
+                ("lrelease-pro", "libexec"),
+                ("lupdate", "bin"),
+                ("lupdate-pro", "libexec"),
+            ])
+        if self.options.qtshadertools:
+            targets.append(("qsb", "bin"))
+        if self.options.qtdeclarative:
+            targets.extend([
+                ("qml", "bin"),
+                ("qmlcachegen", "libexec"),
+                ("qmlformat", "bin"),
+                ("qmlimportscanner", "libexec"),
+                ("qmllint", "bin"),
+                ("qmlpreview", "bin"),
+                ("qmlprofiler", "bin"),
+                ("qmltyperegistrar", "libexec"),
+            ])
+            # Note: consider "qmltestrunner", see https://github.com/conan-io/conan-center-index/issues/24276
+        if self.options.get_safe("qtremoteobjects"):
+            targets.append(("repc", "libexec"))
+        if self.options.get_safe("qtscxml"):
+            targets.append(("qscxmlc", "libexec"))
+        # https://github.com/qt/qtbase/blob/v6.8.3/src/tools/configure.cmake#L8
+        if not cross_building(self) or self.settings.os == "Android":
+            targets.extend([("androiddeployqt", "bin"), ("androidtestrunner", "bin")])
+
+        # targets_info = []
+        extension = ".exe" if self.settings.os == "Windows" else ""
+        # for (target, directory) in targets:
+        #     filename = target + extension
+        #     targets_info.append((target, filename, f"{directory}/{filename}"))
+        # return targets_info
+        return [(target, f"{directory}/{target}{extension}") for (target, directory) in targets]
+
     def package(self):
         if self.settings.os == "Macos":
             save(self, ".qmake.stash", "")
@@ -879,9 +945,6 @@ class QtConan(ConanFile):
             if m != "Qt6HostInfo":
                 rmdir(self, os.path.join(self.package_folder, "lib", "cmake", m))
 
-        extension = ""
-        if self.settings.os == "Windows":
-            extension = ".exe"
         filecontents = "set(QT_CMAKE_EXPORT_NAMESPACE Qt6)\n"
         ver = Version(self.version)
         filecontents += f"set(QT_VERSION_MAJOR {ver.major})\n"
@@ -890,53 +953,17 @@ class QtConan(ConanFile):
         if self.settings.os == "Macos":
             filecontents += 'set(__qt_internal_cmake_apple_support_files_path "${CMAKE_CURRENT_LIST_DIR}/../../../lib/cmake/Qt6/macos")\n'
 
-        executables_base_path = self.dependencies.direct_build["qt"].package_folder if self._is_mobile_os else self.package_folder
-        targets = ["moc", "qlalr", "rcc", "tracegen", "cmake_automoc_parser", "qmake", "qtpaths", "syncqt", "tracepointgen"]
-        if self.options.with_dbus:
-            targets.extend(["qdbuscpp2xml", "qdbusxml2cpp"])
-        if self.options.gui:
-            targets.append("qvkgen")
-        if self.options.widgets:
-            targets.append("uic")
-        if self.settings_build.os == "Macos" and self.settings.os != "iOS":
-            targets.extend(["macdeployqt"])
-        if self.settings.os == "Windows":
-            targets.extend(["windeployqt"])
-        if self.options.qttools:
-            targets.extend(["qhelpgenerator", "qtattributionsscanner"])
-            targets.extend(["lconvert", "lprodump", "lrelease", "lrelease-pro", "lupdate", "lupdate-pro"])
-        if self.options.qtshadertools:
-            targets.append("qsb")
-        if self.options.qtdeclarative:
-            targets.extend(["qmltyperegistrar", "qmlcachegen", "qmllint", "qmlimportscanner"])
-            targets.extend(["qmlformat", "qml", "qmlprofiler", "qmlpreview"])
-            # Note: consider "qmltestrunner", see https://github.com/conan-io/conan-center-index/issues/24276
-        if self.options.get_safe("qtremoteobjects"):
-            targets.append("repc")
-        if self.options.get_safe("qtscxml"):
-            targets.append("qscxmlc")
-        # https://github.com/qt/qtbase/blob/v6.8.3/src/tools/configure.cmake#L8
-        if not cross_building(self):
-            targets.extend(["androiddeployqt", "androidtestrunner"])
-        for target in targets:
-            exe_path = None
-            for path_ in [f"bin/{target}{extension}",
-                          f"lib/{target}{extension}",
-                          f"libexec/{target}{extension}"]:
-                if os.path.isfile(os.path.join(executables_base_path, path_)):
-                    exe_path = path_
-                    break
-            else:
-                assert False, f"Could not find executable {target}{extension} in {self.package_folder}"
-            if not exe_path:
-                self.output.warning(f"Could not find path to {target}{extension}")
-            # TODO: IMPORTED_LOCATION must come from Qt host path
-            filecontents += textwrap.dedent(f"""\
-                if(NOT TARGET ${{QT_CMAKE_EXPORT_NAMESPACE}}::{target})
-                    add_executable(${{QT_CMAKE_EXPORT_NAMESPACE}}::{target} IMPORTED)
-                    set_target_properties(${{QT_CMAKE_EXPORT_NAMESPACE}}::{target} PROPERTIES IMPORTED_LOCATION ${{CMAKE_CURRENT_LIST_DIR}}/../../../{exe_path})
-                endif()
-                """)
+        if not self._is_mobile_os:
+            for (target, exe_path) in self._executable_targets_info:
+                if not os.path.isfile(os.path.join(self.package_folder, exe_path)):
+                    assert False, f"Could not find executable {exe_path} in {self.package_folder}"
+                    self.output.warning(f"Could not find executable {exe_path}")
+                filecontents += textwrap.dedent(f"""\
+                    if(NOT TARGET ${{QT_CMAKE_EXPORT_NAMESPACE}}::{target})
+                        add_executable(${{QT_CMAKE_EXPORT_NAMESPACE}}::{target} IMPORTED)
+                        set_target_properties(${{QT_CMAKE_EXPORT_NAMESPACE}}::{target} PROPERTIES IMPORTED_LOCATION ${{CMAKE_CURRENT_LIST_DIR}}/../../../{exe_path})
+                    endif()
+                    """)
 
         filecontents += textwrap.dedent(f"""\
             if(NOT DEFINED QT_DEFAULT_MAJOR_VERSION)
@@ -1027,6 +1054,12 @@ class QtConan(ConanFile):
     def package_info(self):
         self.cpp_info.set_property("cmake_file_name", "Qt6")
         self.cpp_info.set_property("pkg_config_name", "qt6")
+
+        self.output.info(f"asd {self._executable_targets_info}")
+        for (target, exe_path) in self._executable_targets_info:
+            self.cpp_info.components[target].exe = target
+            self.cpp_info.components[target].set_property("cmake_target_name", f"Qt6::{target}")
+            self.cpp_info.components[target].location = exe_path
 
         # consumers will need the QT_PLUGIN_PATH defined in runenv
         self.runenv_info.define("QT_PLUGIN_PATH", os.path.join(self.package_folder, "plugins"))
