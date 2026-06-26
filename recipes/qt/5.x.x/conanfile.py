@@ -898,8 +898,13 @@ class QtConan(ConanFile):
     def package(self):
         with chdir(self, "build_folder"):
             self.run(f"{self._make_program()} install")
-        save(self, os.path.join(self.package_folder, "bin", "qt.conf"), """[Paths]
-Prefix = ..""")
+
+        qtConf = """[Paths]
+Prefix = .."""
+        if self.settings.os == "Android" or (is_apple_os(self) and self.settings.os != "Macos"):
+            qtConf += f"\nTargetSpec = {self._xplatform()}"
+        save(self, os.path.join(self.package_folder, "bin", "qt.conf"), qtConf)
+
         copy(self, "*LICENSE*", os.path.join(self.source_folder, "qt5/"), os.path.join(self.package_folder, "licenses"),
              excludes="qtbase/examples/*")
         for module in self._submodules:
